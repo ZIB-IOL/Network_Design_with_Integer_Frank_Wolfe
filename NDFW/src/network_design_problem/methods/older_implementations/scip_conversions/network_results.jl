@@ -1,0 +1,129 @@
+# results
+
+term_status_map = Dict(
+    SCIP.SCIP_STATUS_UNKNOWN => MOI.OPTIMIZE_NOT_CALLED,
+    SCIP.SCIP_STATUS_USERINTERRUPT => MOI.INTERRUPTED,
+    SCIP.SCIP_STATUS_NODELIMIT => MOI.NODE_LIMIT,
+    SCIP.SCIP_STATUS_TOTALNODELIMIT => MOI.NODE_LIMIT,
+    SCIP.SCIP_STATUS_STALLNODELIMIT => MOI.OTHER_LIMIT,
+    SCIP.SCIP_STATUS_TIMELIMIT => MOI.TIME_LIMIT,
+    SCIP.SCIP_STATUS_MEMLIMIT => MOI.MEMORY_LIMIT,
+    SCIP.SCIP_STATUS_GAPLIMIT => MOI.OPTIMAL,
+    SCIP.SCIP_STATUS_SOLLIMIT => MOI.SOLUTION_LIMIT,
+    SCIP.SCIP_STATUS_BESTSOLLIMIT => MOI.OTHER_LIMIT,
+    SCIP.SCIP_STATUS_RESTARTLIMIT => MOI.OTHER_LIMIT,
+    SCIP.SCIP_STATUS_OPTIMAL => MOI.OPTIMAL,
+    SCIP.SCIP_STATUS_INFEASIBLE => MOI.INFEASIBLE,
+    SCIP.SCIP_STATUS_UNBOUNDED => MOI.DUAL_INFEASIBLE,
+    SCIP.SCIP_STATUS_INFORUNBD => MOI.INFEASIBLE_OR_UNBOUNDED,
+    SCIP.SCIP_STATUS_TERMINATE => MOI.INTERRUPTED,
+)
+
+function getStatus(o::Optimizer)
+    if o.curr_status == "Infeasible"
+        return MOI.INFEASIBLE
+    elseif o.curr_status == "Solved"
+        return MOI.OPTIMAL
+    else
+        throw("Unknown status: $(o.curr_status)")
+    end
+end
+
+function MOI.get(o::Optimizer, ::MOI.TerminationStatus)
+    return getStatus(o)
+end
+# MOI.get(o::Optimizer, attr::MOI.PrimalStatus) = MOI.get(o.sopt, attr)
+
+# MOI.get(::Optimizer, ds::MOI.DualStatus) = MOI.get(o.sopt, ds)
+
+function MOI.get(o::Optimizer, ::MOI.ResultCount)::Int
+    #status = SCIPgetStatus(o)
+    status = getStatus(o)
+    if status in [MOI.DUAL_INFEASIBLE, MOI.INFEASIBLE_OR_UNBOUNDED]
+        return 0
+    end
+    #return SCIPgetNSols(o)
+    return 1
+end
+
+# MOI.get(o::Optimizer, rs::MOI.RawStatusString) = MOI.get(o.sopt, rs)
+
+
+# "Make sure that SCIP is currently in one of the allowed stages."
+# function assert_stage(o::Optimizer, stages)
+#     #stage = SCIPgetStage(o)
+#     stage = SCIP.SCIP_STAGE_SOLVED
+#     if !(stage in stages)
+#         error("SCIP is wrong stage ($stage, need $stages)!")
+#     end
+# end
+
+# "Make sure that the problem was solved (SCIP is in SOLVED stage)."
+# function assert_solved(o::Optimizer)
+#     # SCIP's stage is SOLVING when stopped by user limit!
+#     assert_stage(o, (SCIP.SCIP_STAGE_PRESOLVING, SCIP.SCIP_STAGE_SOLVING, SCIP.SCIP_STAGE_PRESOLVED, SCIP.SCIP_STAGE_SOLVED))
+
+#     # Check for invalid status (when stage is SOLVING).
+#     #status = SCIPgetStatus(o)
+#     status = SCIP.SCIP_STATUS_OPTIMAL
+#     if status in (SCIP.SCIP_STATUS_UNKNOWN,
+#                   SCIP.SCIP_STATUS_USERINTERRUPT,
+#                   SCIP.SCIP_STATUS_TERMINATE)
+#         error("SCIP's solving was interrupted, but not by a user-given limit!")
+#     end
+# end
+
+# "Make sure that: TRANSFORMED ≤ stage ≤ SOLVED."
+# assert_after_prob(o::Optimizer) = assert_stage(o, SCIP_Stage.(3:10))
+
+# function MOI.get(o::Optimizer, attr::MOI.ObjectiveValue)
+#     assert_solved(o)
+#     MOI.check_result_index_bounds(o, attr)
+#     sols = unsafe_wrap(Array{Ptr{SCIP_SOL}}, SCIPgetSols(o), SCIPgetNSols(o))
+#     return SCIPgetSolOrigObj(o, sols[attr.result_index])
+# end
+
+function MOI.get(o::Optimizer, attr::MOI.VariablePrimal, vi::MOI.VariableIndex)
+    #assert_solved(o)
+    #MOI.check_result_index_bounds(o, attr)
+    #sols = unsafe_wrap(Array{Ptr{SCIP_SOL}}, SCIPgetSols(o), SCIPgetNSols(o))
+    #return SCIPgetSolVal(o, sols[attr.result_index], var(o, vi))
+    return o.curr_solution[vi.value]
+end
+
+# function MOI.get(o::Optimizer, attr::MOI.ConstraintPrimal, ci::CI{VI,<:BOUNDS})
+#     assert_solved(o)
+#     MOI.check_result_index_bounds(o, attr)
+#     sols = unsafe_wrap(Array{Ptr{SCIP_SOL}}, SCIPgetSols(o), SCIPgetNSols(o))
+#     return SCIPgetSolVal(o, sols[attr.result_index], var(o, VI(ci.value)))
+# end
+
+# function MOI.get(o::Optimizer, attr::MOI.ConstraintPrimal, ci::CI{<:SAF,<:BOUNDS})
+#     assert_solved(o)
+#     MOI.check_result_index_bounds(o, attr)
+#     sols = unsafe_wrap(Array{Ptr{SCIP_SOL}}, SCIPgetSols(o), SCIPgetNSols(o))
+#     return SCIPgetActivityLinear(o, cons(o, ci), sols[attr.result_index])
+# end
+
+# function MOI.get(o::Optimizer, ::MOI.ObjectiveBound)
+#     assert_after_prob(o)
+#     return SCIPgetDualbound(o)
+# end
+
+# function MOI.get(o::Optimizer, ::MOI.RelativeGap)
+#     assert_stage(o, [SCIP_STAGE_PRESOLVING, SCIP_STAGE_SOLVING, SCIP_STAGE_SOLVED])
+#     return SCIPgetGap(o)
+# end
+
+function MOI.get(o::Optimizer, ::MOI.SolveTimeSec)
+    return 1.0
+end
+
+function MOI.get(o::Optimizer, ::MOI.SimplexIterations)
+    #assert_stage(o, [SCIP_STAGE_PRESOLVING, SCIP_STAGE_SOLVING, SCIP_STAGE_SOLVED])
+    return 0
+end
+
+function MOI.get(o::Optimizer, ::MOI.NodeCount)
+    return 0
+end
